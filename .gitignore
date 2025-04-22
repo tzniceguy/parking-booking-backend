@@ -1,17 +1,65 @@
-db.sqlite3
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.so
 
-# If you are using PyCharm #
-# User-specific stuff
-.idea/**/workspace.xml
-.idea/**/tasks.xml
-.idea/**/usage.statistics.xml
-.idea/**/dictionaries
-.idea/**/shelf
+# Virtual environments
+venv/
+env/
+.venv/
+.env/
 
-# Django #
+# Django specific
 *.log
 *.pot
 *.pyc
-__pycache__
 db.sqlite3
-media
+db.sqlite3-journal
+media/
+staticfiles/
+local_settings.py
+instance/
+.env
+
+# Migrations
+**/migrations/**/__pycache__/
+**/migrations/*.py[cod]
+**/migrations/*.pyc
+
+# PyCharm
+.idea/
+*.iml
+
+# VSCode (optional, in case you're using it sometimes)
+.vscode/
+
+# macOS/Linux/Windows
+.DS_Store
+Thumbs.db
+
+# Coverage reports
+htmlcov/
+coverage.xml
+*.cover
+*.py,cover
+.cache
+.tox/
+
+# MyPy / Pylint / Pyright / etc.
+.mypy_cache/
+.pyright/
+.pylint.d/
+
+# Build/dist files
+build/
+dist/
+*.egg-info/
+
+# Node (if using npm/yarn for frontend assets)
+node_modules/
+
+# Test output
+test-results/
