@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('users', '0003_alter_motorist_options_alter_motorist_table'),
+        ('users', '0002_alter_motorist_managers_alter_person_managers'),
     ]
 
     operations = [
