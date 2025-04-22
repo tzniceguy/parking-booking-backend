@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Person
 
+
 class UserSerializer(serializers.ModelSerializer):
     """serializer class to serialize user details"""
 
