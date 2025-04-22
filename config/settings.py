@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     #local apps
     'users',
     'parking',
+    #third party
+    'rest_framework',
 ]
 
 MIDDLEWARE = [
