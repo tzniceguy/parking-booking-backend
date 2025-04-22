@@ -2,7 +2,7 @@ import math
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
-from users.models import Motorist
+from users.models import Motorist,ParkingOperator
 
 
 # Create your models here.
@@ -35,6 +35,7 @@ class Vehicle(models.Model):
 class ParkingLot(models.Model):
     name = models.CharField(max_length=50)
     address = models.CharField(max_length=100)
+    operator = models.ForeignKey(ParkingOperator, on_delete=models.PROTECT, related_name="managed_lots", blank=True, null=True)
     latitude = models.DecimalField(max_digits=9, decimal_places=6)
     longitude = models.DecimalField(max_digits=9, decimal_places=6)
     total_spots = models.IntegerField(validators=[MinValueValidator(1)])
@@ -50,7 +51,7 @@ class ParkingLot(models.Model):
         verbose_name_plural = 'Parking Lots'
 
     def __str__(self):
-        return self.name
+        return f"{self.name} (operator: {self.operator.name})"
     def clean(self):
         if self.opening_hours >= self.closing_hours:
             raise ValidationError("Closing hours must be after opening hours.")

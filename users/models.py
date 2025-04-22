@@ -2,30 +2,8 @@ from datetime import timedelta
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
-from django.contrib.auth.base_user import BaseUserManager
+from .managers import PersonManager
 
-class PersonManager(BaseUserManager):
-    use_in_migrations = True
-
-    def create_user(self, phone_number, password=None, **extra_fields):
-        if not phone_number:
-            raise ValueError("The phone number must be set")
-        phone_number = self.normalize_email(phone_number)  # optional
-        user = self.model(phone_number=phone_number, **extra_fields)
-        user.set_password(password)
-        user.save(using=self._db)
-        return user
-
-    def create_superuser(self, phone_number, password=None, **extra_fields):
-        extra_fields.setdefault("is_staff", True)
-        extra_fields.setdefault("is_superuser", True)
-
-        if extra_fields.get("is_staff") is not True:
-            raise ValueError("Superuser must have is_staff=True.")
-        if extra_fields.get("is_superuser") is not True:
-            raise ValueError("Superuser must have is_superuser=True.")
-
-        return self.create_user(phone_number, password, **extra_fields)
 
 class Person(AbstractUser):
     phone_number = models.CharField(max_length=15, unique=True)
@@ -41,10 +19,31 @@ class Person(AbstractUser):
 
 
 class Motorist(Person):
+    id_type = models.CharField(max_length=30, blank=True,null=True,
+                               choices=[('nida', 'kitambulisho cha nida'),
+                                                       ('kura', 'kitambulisho cha mpiga kura'),
+                                                       ('leseni', 'leseni ya udereva'), ('pasipoti', 'hati ya kusafiria')
+                                                       ])
+    id_number = models.CharField(max_length=50, unique=True, null=True, blank=True)
+
     class Meta:
         db_table = "motorists"
-    pass
 
+    def __str__(self):
+        return f"{self.first_name} with id {self.id_number}"
+
+class ParkingOperator(Person):
+    company_name = models.CharField(max_length=30)
+    business_telephone = models.CharField(max_length=15)
+    business_email = models.EmailField(max_length=50)
+    address = models.CharField(max_length=50)
+    city =models.CharField(max_length=50)
+
+    class Meta:
+        db_table = "parking_operators"
+
+    def __str__(self):
+        return f"{self.first_name} operator form {self.company_name}"
 
 class OTP(models.Model):
     person = models.ForeignKey(Person, on_delete=models.CASCADE)
