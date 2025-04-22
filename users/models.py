@@ -41,6 +41,8 @@ class Person(AbstractUser):
 
 
 class Motorist(Person):
+    class Meta:
+        db_table = "motorists"
     pass
 
 
