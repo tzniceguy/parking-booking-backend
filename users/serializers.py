@@ -81,3 +81,28 @@ class OperatorRegisterSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.save()
         return user
+
+class OperatorLoginSerializer(serializers.Serializer):
+    """serializer for authenticating parking operators"""
+    phone_number = serializers.CharField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self,attrs):
+        phone_number = attrs.get('phone_number')
+        password = attrs.get('password')
+        if not phone_number or not password:
+            raise serializers.ValidationError("both phone number and password field are required")
+
+        #authenticate user and return
+        user = authenticate(username=phone_number, password=password)
+
+        if not user:
+            raise serializers.ValidationError("invalid credentials")
+
+        try:
+            operator = ParkingOperator.objects.get(pk=user.pk)
+        except ParkingOperator.DoesNotExist:
+            raise serializers.ValidationError("not a registered operator")
+
+        attrs["user"] = operator
+        return attrs

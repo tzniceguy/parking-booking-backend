@@ -4,7 +4,7 @@ from .models import Person
 from rest_framework.response import Response
 from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_201_CREATED, HTTP_200_OK
 from .serializers import MotoristRegistrationSerializer, UserSerializer, MotoristLoginSerializer, \
-    OperatorRegisterSerializer
+    OperatorRegisterSerializer, OperatorLoginSerializer
 from rest_framework.generics import GenericAPIView, ListAPIView
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny,IsAdminUser
@@ -88,4 +88,28 @@ class OperatorRegisterView(GenericAPIView):
                     }
                 },status = HTTP_201_CREATED
             )
+        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
+
+class OperatorLoginView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self,request):
+        serializer = OperatorLoginSerializer(data=request.data)
+
+        if serializer.is_valid():
+            operator = serializer.validated_data["user"]
+
+
+            refresh = RefreshToken.for_user(operator)
+            return Response({
+                "message": "operator authenticated successfully",
+                "tokens": {
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh)
+                }, "user": {
+                    "id": operator.id,
+                    "first_name": operator.first_name,
+                    "company_name": operator.company_name
+                }
+            }, status=HTTP_200_OK)
         return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
