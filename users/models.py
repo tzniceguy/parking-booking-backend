@@ -6,6 +6,7 @@ from .managers import PersonManager
 
 
 class Person(AbstractUser):
+    username=None
     phone_number = models.CharField(max_length=15, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -46,7 +47,7 @@ class ParkingOperator(Person):
         return f"{self.first_name} operator form {self.company_name}"
 
 class OTP(models.Model):
-    person = models.ForeignKey(Person, on_delete=models.CASCADE)
+    person = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="otps")
     otp_value = models.IntegerField()
     is_used = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
