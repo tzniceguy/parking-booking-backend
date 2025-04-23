@@ -1,10 +1,10 @@
+from django.contrib.auth import authenticate
 from rest_framework import serializers
 from .models import Motorist, Person
 
 
 class UserSerializer(serializers.ModelSerializer):
     """serializer class to serialize user details"""
-
     class Meta:
         model = Person
         fields = '__all__'
@@ -33,3 +33,27 @@ class MotoristRegistrationSerializer(serializers.ModelSerializer):
         user.save()
         return user
 
+class MotoristLoginSerializer(serializers.Serializer):
+    """serializer to handle motorist registration"""
+    phone_number = serializers.CharField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self,attrs):
+        phone_number = attrs.get('phone_number')
+        password = attrs.get('password')
+        if not phone_number or not password:
+            raise serializers.ValidationError("both phone number and password field are required")
+
+        #authenticate user and return
+        user = authenticate(username=phone_number, password=password)
+
+        if not user:
+            raise serializers.ValidationError("invalid credentials")
+
+        try:
+            motorist = Motorist.objects.get(pk=user.pk)
+        except Motorist.DoesNotExist:
+            raise serializers.ValidationError("not a registered motorist")
+
+        attrs["user"] = user
+        return attrs
