@@ -3,7 +3,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import Person
 from rest_framework.response import Response
 from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_201_CREATED, HTTP_200_OK
-from .serializers import MotoristRegistrationSerializer, UserSerializer, MotoristLoginSerializer
+from .serializers import MotoristRegistrationSerializer, UserSerializer, MotoristLoginSerializer, \
+    OperatorRegisterSerializer
 from rest_framework.generics import GenericAPIView, ListAPIView
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny,IsAdminUser
@@ -60,3 +61,31 @@ class MotoristLoginView(APIView):
             },status = HTTP_200_OK)
         return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 
+class OperatorRegisterView(GenericAPIView):
+    """view for registering an operator associated with parking"""
+    permission_classes = [AllowAny]
+    serializer_class = OperatorRegisterSerializer
+
+    def post(self,request):
+        serializer = self.get_serializer(data=request.data)
+
+        if serializer.is_valid():
+            operator = serializer.save()
+            refresh = RefreshToken.for_user(operator)
+
+            return Response(
+                {
+                    "message": "operator is registered successfully",
+                    "tokens": {
+                        "access": str(refresh.access_token),
+                        "refresh":str(refresh)
+                    },
+                    "user": {
+                        "id": operator.id,
+                        "first_name": operator.first_name,
+                        "phone_number": operator.phone_number,
+                        "company": operator.company_name
+                    }
+                },status = HTTP_201_CREATED
+            )
+        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)

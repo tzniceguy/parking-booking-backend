@@ -1,6 +1,6 @@
 from django.contrib.auth import authenticate
 from rest_framework import serializers
-from .models import Motorist, Person
+from .models import Motorist, Person,ParkingOperator
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -57,3 +57,27 @@ class MotoristLoginSerializer(serializers.Serializer):
 
         attrs["user"] = user
         return attrs
+
+class OperatorRegisterSerializer(serializers.ModelSerializer):
+    """serializer for registering parking operator"""
+    class Meta:
+        model = ParkingOperator
+        fields = ("id", "first_name", "phone_number", "company_name", "password")
+        extra_kwargs = {
+            "password": {"write_only": True},
+            "first_name": {"required": True},
+            "phone_number": {"required": True},
+            "company_name": {"required": True}
+        }
+
+    def validate_phone_number(self, value):
+        if ParkingOperator.objects.filter(phone_number=value).exists():
+            raise serializers.ValidationError("Phone number already in use.")
+        return value
+
+    def create(self, validated_data):
+        password = validated_data.pop('password')
+        user = ParkingOperator(**validated_data)
+        user.set_password(password)
+        user.save()
+        return user
