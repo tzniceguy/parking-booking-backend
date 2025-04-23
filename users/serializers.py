@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Person
+from .models import Motorist, Person
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -9,12 +9,27 @@ class UserSerializer(serializers.ModelSerializer):
         model = Person
         fields = '__all__'
 
-class UserRegistrationSerializer(serializers.ModelSerializer):
+class MotoristRegistrationSerializer(serializers.ModelSerializer):
     """serializer class to serialize registration"""
     class Meta:
-        model = Person
+        model = Motorist
         fields = ("id", "first_name", "phone_number", "password")
-        extra_kwargs = {"password": {"write_only": True}}
+        extra_kwargs = {
+            "password": {"write_only": True},
+            "first_name": {"required": True},
+            "phone_number": {"required": True}
+             }
 
-    def create(self,validated_data):
-        return Person.objects.create_user(**validated_data)
+    def validate_phone_number(self, value):
+        if Person.objects.filter(phone_number=value).exists():
+            raise serializers.ValidationError("Phone number already in use.")
+        return value
+
+
+    def create(self, validated_data):
+        password = validated_data.pop('password')
+        user = Motorist(**validated_data)
+        user.set_password(password)
+        user.save()
+        return user
+
