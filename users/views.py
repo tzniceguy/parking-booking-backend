@@ -1,13 +1,14 @@
+from rest_framework.viewsets import ViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import Person
 from rest_framework.response import Response
 from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_201_CREATED, HTTP_200_OK
 from .serializers import MotoristRegistrationSerializer, UserSerializer, MotoristLoginSerializer, \
-    OperatorRegisterSerializer, OperatorLoginSerializer
+    OperatorRegisterSerializer, OperatorLoginSerializer, UserProfileSerializer
 from rest_framework.generics import GenericAPIView, ListAPIView
 from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny,IsAdminUser
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 
 
 # Create your views here.
@@ -113,3 +114,10 @@ class OperatorLoginView(APIView):
                 }
             }, status=HTTP_200_OK)
         return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
+
+class UserProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self,request):
+        serializer = UserProfileSerializer(request.user)
+        return Response(serializer.data)

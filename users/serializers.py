@@ -106,3 +106,34 @@ class OperatorLoginSerializer(serializers.Serializer):
 
         attrs["user"] = operator
         return attrs
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    role = serializers.SerializerMethodField()
+    extra_data = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Person
+        fields = ("id", "first_name", "last_name", "phone_number", "role", "extra_data")
+
+    # Method to get user role from person object
+    def get_role(self, obj):
+        if hasattr(obj, 'motorist'):
+            return "motorist"
+        if hasattr(obj, 'parkingoperator'):
+            return "parking operator"
+        return "user"
+
+    # Method to get extra fields for user object
+    def get_extra_data(self, obj):
+        if hasattr(obj, 'motorist'):
+            return {
+                "id_type": obj.motorist.id_type,
+                "id_number": obj.motorist.id_number
+            }
+        if hasattr(obj, 'parkingoperator'):
+            return {
+                "company_name": obj.parkingoperator.company_name,
+                "business_email": obj.parkingoperator.business_email,
+                "city": obj.parkingoperator.city,
+            }
+        return {}
