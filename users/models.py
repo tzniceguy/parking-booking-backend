@@ -44,7 +44,7 @@ class ParkingOperator(Person):
         db_table = "parking_operators"
 
     def __str__(self):
-        return f"{self.first_name} operator form {self.company_name}"
+        return f"{self.first_name} operator for {self.company_name}"
 
 class OTP(models.Model):
     person = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="otps")
@@ -58,3 +58,4 @@ class OTP(models.Model):
 
     def __str__(self):
         return f"{self.person.phone_number} - {self.otp_value}"
+
