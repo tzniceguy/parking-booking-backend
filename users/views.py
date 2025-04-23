@@ -121,3 +121,31 @@ class UserProfileView(APIView):
     def get(self,request):
         serializer = UserProfileSerializer(request.user)
         return Response(serializer.data)
+
+    def put(self, request):
+        user = request.user
+        serializer = UserProfileSerializer(user, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+
+            # Update role-specific fields if needed
+            if hasattr(user, 'motorist'):
+                motorist = user.motorist
+                allowed_fields = ['phone_number']
+                for field in allowed_fields:
+                    if field in request.data:
+                        setattr(motorist, field, request.data[field])
+                motorist.save()
+
+            elif hasattr(user, 'parkingoperator'):
+                operator = user.parkingoperator
+                allowed_fields = ['business_email', 'phone_number', 'city']
+                for field in allowed_fields:
+                    if field in request.data:
+                        setattr(operator, field, request.data[field])
+                operator.save()
+
+            return Response(serializer.data, status=HTTP_200_OK)
+
+        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)

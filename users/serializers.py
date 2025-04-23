@@ -114,6 +114,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Person
         fields = ("id", "first_name", "last_name", "phone_number", "role", "extra_data")
+        read_only_fields=("id", "phone_number")
 
     # Method to get user role from person object
     def get_role(self, obj):
