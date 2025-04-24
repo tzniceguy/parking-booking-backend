@@ -62,7 +62,6 @@ class ParkingSpot(models.Model):
         ('standard', 'Standard'),
         ('compact', 'Compact'),
         ('handicap', 'Handicap'),
-        ('electric', 'Electric Vehicle'),
         ('motorcycle', 'Motorcycle'),
         ('reserved', 'Reserved'),
     ]
