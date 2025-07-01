@@ -20,8 +20,8 @@ class ParkingLotViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsOperatorOrReadOnly()]  # Using your custom permission
-        return [permissions.AllowAny()]  # Instantiate with parentheses
+            return [IsOperatorOrReadOnly()]
+        return [permissions.AllowAny()]
 
     def perform_create(self, serializer):
         if not self.request.user.is_authenticated:

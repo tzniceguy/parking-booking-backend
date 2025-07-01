@@ -1,6 +1,6 @@
 from django.contrib.auth import authenticate
 from rest_framework import serializers
-from .models import Motorist, Person,ParkingOperator
+from .models import Motorist, Person, ParkingOperator, OTP
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -25,13 +25,14 @@ class MotoristRegistrationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Phone number already in use.")
         return value
 
-
     def create(self, validated_data):
         password = validated_data.pop('password')
-        user = Motorist(**validated_data)
-        user.set_password(password)
-        user.save()
-        return user
+        motorist = Motorist(**validated_data)
+        motorist.set_password(password)
+        motorist.save()
+        return motorist
+
+
 
 class MotoristLoginSerializer(serializers.Serializer):
     """serializer to handle motorist registration"""
@@ -57,6 +58,44 @@ class MotoristLoginSerializer(serializers.Serializer):
 
         attrs["user"] = user
         return attrs
+
+class OTPSerializer(serializers.ModelSerializer):
+    """serializer for OTP"""
+    phone_number = serializers.CharField(max_length=15)
+
+class VerifyRegistrationOTPSerializer(serializers.Serializer):
+    """serializer for OTP verificatiion"""
+    phone_number = serializers.CharField()
+    otp = serializers.IntegerField()
+
+
+    def validate(self,attrs):
+        phone_number = attrs.get('phone_number')
+        otp = attrs.get('otp')
+
+        try:
+            otp_object = OTP.objects.get(phone_number=phone_number, otp=otp, is_used=False)
+        except OTP.DoesNotExist:
+            raise serializers.ValidationError("invalid otp")
+
+        if otp_object.is_expired():
+            raise serializers.ValidationError("OTP has expired")
+
+        otp_object.is_used = True
+        otp_object.save()
+
+        return attrs
+
+    def create(self,validated_data):
+        phone_number = validated_data.get('phone_number')
+        user = Person.objects.get(phone_number=phone_number)
+
+        # If the user does not exist, raise an error
+        if not user:
+            raise serializers.ValidationError("User does not exist")
+
+        # Return the user object
+        return user
 
 class OperatorRegisterSerializer(serializers.ModelSerializer):
     """serializer for registering parking operator"""
@@ -116,7 +155,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         fields = ("id", "first_name", "last_name", "phone_number", "role", "extra_data")
         read_only_fields=("id", "phone_number")
 
-    # Method to get user role from person object
+    # Method to get the user role from person object
     def get_role(self, obj):
         if hasattr(obj, 'motorist'):
             return "motorist"
