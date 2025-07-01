@@ -47,9 +47,10 @@ class ParkingOperator(Person):
         return f"{self.first_name} operator for {self.company_name}"
 
 class OTP(models.Model):
-    person = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="otps")
-    otp_value = models.IntegerField()
+    phone_number = models.CharField(max_length=15, null=True, blank=True)
+    otp = models.IntegerField()
     is_used = models.BooleanField(default=False)
+    expires_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def is_expired(self):
@@ -57,5 +58,5 @@ class OTP(models.Model):
         return timezone.now() > expiry_time
 
     def __str__(self):
-        return f"{self.person.phone_number} - {self.otp_value}"
+        return f"{self.phone_number} - {self.otp}"
 
