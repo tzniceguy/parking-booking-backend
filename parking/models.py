@@ -51,7 +51,7 @@ class ParkingLot(models.Model):
         verbose_name_plural = 'Parking Lots'
 
     def __str__(self):
-        return f"{self.name} (operator: {self.operator.name})"
+        return f"{self.name} (operator: {self.operator.company_name})"
     def clean(self):
         if self.opening_hours >= self.closing_hours:
             raise ValidationError("Closing hours must be after opening hours.")
@@ -60,8 +60,6 @@ class ParkingLot(models.Model):
 class ParkingSpot(models.Model):
     SPOT_TYPES = [
         ('standard', 'Standard'),
-        ('compact', 'Compact'),
-        ('handicap', 'Handicap'),
         ('motorcycle', 'Motorcycle'),
         ('reserved', 'Reserved'),
     ]
@@ -107,6 +105,10 @@ class Booking(models.Model):
 
     def __str__(self):
         return f"Booking {self.id} for {self.parking_spot} ({self.start_time})"
+
+    def duration(self):
+        return self.end_time - self.start_time if self.end_time and self.start_time else None
+
 
     def clean(self):
         if self.start_time >= self.end_time:
