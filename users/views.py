@@ -88,11 +88,6 @@ class OTPVerificationView(GenericAPIView):
                         "tokens": {
                             "access": str(refresh.access_token),
                             "refresh": str(refresh)
-                        },
-                        "user": {
-                            "id": motorist.id,
-                            "first_name": motorist.first_name,
-                            "phone_number": motorist.phone_number
                         }
                     }, status=HTTP_201_CREATED)
 
@@ -115,16 +110,10 @@ class MotoristLoginView(APIView):
             #refresh jwt tokens
             refresh = RefreshToken.for_user(user)
             return Response({
-                "message": "user authenticated successfully",
-                "tokens":{
-                    "access":str(refresh.access_token),
-                    "refresh": str(refresh)
-                },"user":{
-                    "id": user.id,
-                    "first_name": user.first_name,
-                    "phone_number":user.phone_number
-                }
-            },status = HTTP_200_OK)
+                "access":str(refresh.access_token),
+                "refresh": str(refresh)
+            }
+            ,status = HTTP_200_OK)
         return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 
 class OperatorRegisterView(GenericAPIView):
