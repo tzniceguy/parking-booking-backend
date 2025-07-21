@@ -178,3 +178,34 @@ class UserProfileSerializer(serializers.ModelSerializer):
                 "city": obj.parkingoperator.city,
             }
         return {}
+
+
+class CurrentUserSerializer(serializers.ModelSerializer):
+    role = serializers.SerializerMethodField()
+    extra_data = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Person
+        fields = ("id", "first_name", "last_name", "phone_number", "role", "extra_data")
+        read_only_fields=("id", "phone_number")
+
+    def get_role(self, obj):
+        if hasattr(obj, 'motorist'):
+            return "motorist"
+        if hasattr(obj, 'parkingoperator'):
+            return "parking operator"
+        return "user"
+
+    def get_extra_data(self, obj):
+        if hasattr(obj, 'motorist'):
+            return {
+                "id_type": obj.motorist.id_type,
+                "id_number": obj.motorist.id_number
+            }
+        if hasattr(obj, 'parkingoperator'):
+            return {
+                "company_name": obj.parkingoperator.company_name,
+                "business_email": obj.parkingoperator.business_email,
+                "city": obj.parkingoperator.city,
+            }
+        return {}

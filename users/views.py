@@ -6,11 +6,19 @@ from .models import  OTP, Motorist
 from rest_framework.response import Response
 from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_201_CREATED, HTTP_200_OK
 from .serializers import MotoristRegistrationSerializer,  MotoristLoginSerializer, \
-    OperatorRegisterSerializer, OperatorLoginSerializer, UserProfileSerializer, VerifyRegistrationOTPSerializer
+    OperatorRegisterSerializer, OperatorLoginSerializer, UserProfileSerializer, VerifyRegistrationOTPSerializer, CurrentUserSerializer
 from rest_framework.generics import GenericAPIView
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny,  IsAuthenticated
 from .utils import generate_otp, send_otp
+
+
+class CurrentUserView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = CurrentUserSerializer(request.user)
+        return Response(serializer.data)
 
 class MotoristRegistrationView(GenericAPIView):
     """endpoint for the client to create the new user"""
@@ -96,7 +104,7 @@ class OTPVerificationView(GenericAPIView):
                         }
                     }, status=HTTP_201_CREATED)
 
-            except Exception as e:
+            except Exception:
                 return Response({
                     "message": "Registration failed"
                 }, status=HTTP_400_BAD_REQUEST)
