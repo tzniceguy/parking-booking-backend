@@ -1,15 +1,16 @@
 from datetime import time
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied, ValidationError
-from .serializers import ParkingLotSerializer, ParkingSpotSerializer, BookingSerializer, VehicleSerializer
-from rest_framework import viewsets, filters, mixins, status
+from rest_framework.exceptions import PermissionDenied
+from .serializers import ParkingLotSerializer, ParkingSpotSerializer, BookingSerializer, VehicleSerializer, \
+    QuickBookingSerializer, PaymentSerializer
+from rest_framework import viewsets,  mixins, status
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import ParkingLot, ParkingSpot, Booking, Vehicle
+from .models import ParkingLot,  Booking, Vehicle, Payment
 from .permissions import IsOperatorOrReadOnly
 from rest_framework import permissions
 from .utils import haversine_distance
 from rest_framework.response import Response
-
+from .utils import PaymentService
 
 class ParkingLotViewSet(viewsets.ModelViewSet):
     serializer_class = ParkingLotSerializer
@@ -115,13 +116,62 @@ class BookingViewSet(mixins.CreateModelMixin,
             raise PermissionDenied("Only motorists can make bookings.")
 
         # The serializer's validate method already checks if the vehicle belongs to the user
-        serializer.save(user=self.request.user.motorist)
+        serializer.save(user=self.request.user)
 
     def get_serializer_context(self):
         """
         Pass the request object to the serializer context.
         """
         return {'request': self.request}
+
+    @action(detail=False, methods=['post'], url_path='quick-book')
+    def quick_book(self, request):
+        serializer = QuickBookingSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            booking = serializer.save()
+            return Response(BookingSerializer(booking).data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class PaymentViewSet(viewsets.ModelViewSet):
+    queryset = Payment.objects.all()
+    serializer_class = PaymentSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        """handle payment initialization for booking"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        booking = serializer.validated_data['booking']
+        phone_number = serializer.validated_data['phone_number']
+
+        try:
+            booking = Booking.objects.get(id=serializer.validated_data['booking_id'])
+            phone_number = serializer.validated_data['phone_number']
+
+            payment_response = PaymentService.initiate_payment(
+                phone_number=phone_number,
+                amount=booking.cost,
+                booking = booking.id,
+            )
+
+            if payment_response['success']:
+                payment = Payment.objects.create(
+                    amount=booking.cost,
+                    phone_number=phone_number,
+                    transaction_id=payment_response['transaction_id'],
+                    booking=booking,
+                    status="completed"  # Mark as completed directly
+                )
+                return Response(PaymentSerializer(payment).data, status=status.HTTP_201_CREATED)
+
+            # If payment initiation failed, return the error message from the service
+            return Response({"error": payment_response.get('message', "Payment initiation failed.")}, status=status.HTTP_400_BAD_REQUEST)
+        except Booking.DoesNotExist:
+            return Response({"error": "Booking not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+
 
 
 class VehicleViewSet(viewsets.ModelViewSet):
@@ -141,4 +191,4 @@ class VehicleViewSet(viewsets.ModelViewSet):
         """
         if not hasattr(self.request.user, 'motorist'):
             raise PermissionDenied("Only motorists can add vehicles.")
-        serializer.save(user=self.request.user.motorist)
+        serializer.save(user=self.request.user)
