@@ -24,27 +24,32 @@ class MotoristRegistrationView(GenericAPIView):
             phone_number = serializer.validated_data["phone_number"]
 
             # Generate and send OTP
-            otp_value = generate_otp()
-            if send_otp(phone_number, otp_value):
-                # Clear any existing OTPs for this phone number
-                OTP.objects.filter(phone_number=phone_number).delete()
+            try:
+                otp_value = generate_otp()
+                if send_otp(phone_number, otp_value):
+                    # Clear any existing OTPs for this phone number
+                    OTP.objects.filter(phone_number=phone_number).delete()
 
-                # Save OTP to database
-                OTP.objects.create(
-                    phone_number=phone_number,
-                    otp=otp_value,
-                    expires_at=timezone.now() + timedelta(minutes=15)
-                )
+                    # Save OTP to database
+                    OTP.objects.create(
+                        phone_number=phone_number,
+                        otp=otp_value,
+                        expires_at=timezone.now() + timedelta(minutes=15)
+                    )
 
-                # Store registration data in session for later use
-                request.session['pending_registration'] = serializer.validated_data
+                    # Store registration data in session for later use
+                    request.session['pending_registration'] = serializer.validated_data
 
+                    return Response({
+                        "message": "OTP sent successfully, please verify your phone number"
+                    }, status=HTTP_200_OK)
+                else:
+                    return Response({
+                        "message": "Failed to send OTP, please try again."
+                    }, status=HTTP_400_BAD_REQUEST)
+            except Exception as e:
                 return Response({
-                    "message": "OTP sent successfully, please verify your phone number"
-                }, status=HTTP_200_OK)
-            else:
-                return Response({
-                    "message": "Failed to send OTP, please try again."
+                    "message": f"Error sending OTP: {str(e)}"
                 }, status=HTTP_400_BAD_REQUEST)
 
         return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)

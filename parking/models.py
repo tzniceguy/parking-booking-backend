@@ -1,4 +1,5 @@
 import math
+import uuid
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
@@ -19,9 +20,9 @@ class Vehicle(models.Model):
     user = models.ForeignKey(Motorist, on_delete=models.CASCADE, related_name='vehicles')
     license_plate = models.CharField(max_length=20)
     vehicle_type = models.CharField(max_length=20, choices=VEHICLE_TYPES)
-    make = models.CharField(max_length=30)
-    model = models.CharField(max_length=30)
-    color = models.CharField(max_length=30)
+    make = models.CharField(max_length=30, null=True, blank=True)
+    model = models.CharField(max_length=30, null=True, blank=True)
+    color = models.CharField(max_length=30, null=True, blank=True)
 
     class Meta:
         unique_together = ('user', 'license_plate')
@@ -91,11 +92,12 @@ class Booking(models.Model):
     user = models.ForeignKey(Motorist, on_delete=models.CASCADE, related_name='bookings')
     parking_spot = models.ForeignKey(ParkingSpot, on_delete=models.CASCADE, related_name='bookings')
     vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='bookings')
+    phone_number = models.CharField(max_length=15, blank=True, null=True)
     booking_time = models.DateTimeField(auto_now_add=True)
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
-    duration = models.DurationField()
-    cost = models.DecimalField(max_digits=8, decimal_places=2)
+    cost = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    payment = models.OneToOneField('Payment', on_delete=models.SET_NULL, null=True, blank=True, related_name='booking')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
 
     class Meta:
@@ -107,54 +109,93 @@ class Booking(models.Model):
         return f"Booking {self.id} for {self.parking_spot} ({self.start_time})"
 
     def duration(self):
-        return self.end_time - self.start_time if self.end_time and self.start_time else None
+        """Calculate duration as a timedelta (not stored in DB)"""
+        if self.end_time and self.start_time:
+            return self.end_time - self.start_time
+        return None
 
+    def add_payment(self, payment):
+        """Associate a payment with this booking"""
+        self.payment = payment
+        self.save()
 
     def clean(self):
-        if self.start_time >= self.end_time:
+        # Validate time sequence
+        if self.start_time and self.end_time and self.start_time >= self.end_time:
             raise ValidationError("End time must be after start time.")
+
         # Check for overlapping bookings
-        overlapping_bookings = Booking.objects.filter(
-            parking_spot=self.parking_spot,
-            start_time__lt=self.end_time,
-            end_time__gt=self.start_time,
-        ).exclude(id=self.id)
-        if overlapping_bookings.exists():
-            raise ValidationError("This parking spot is already booked for the selected time.")
+        if self.parking_spot_id and self.start_time and self.end_time:
+            overlapping = Booking.objects.filter(
+                parking_spot=self.parking_spot,
+                start_time__lt=self.end_time,
+                end_time__gt=self.start_time
+            ).exclude(id=self.id)
+
+            if overlapping.exists():
+                raise ValidationError("This parking spot is already booked for the selected time.")
 
     def save(self, *args, **kwargs):
-        # Compute duration
-        if  self.end_time and self.start_time:
-            self.duration = self.end_time - self.start_time
-            #compute costs round up to nearlest hour
-            if self.parking_spot and self.parking_spot.hourly_rate is not None and self.duration:
-                total_seconds = self.duration.total_seconds()
-                hours = math.ceil(total_seconds/3600)
-                self.cost = hours * self.parking_spot.hourly_rate
-            else:
-                self.cost = 0
+        """Run full validation and calculate cost before saving"""
+        self.full_clean()  # Enforces validation rules
+        self.calculate_cost()
+        super().save(*args, **kwargs)
+
+    def calculate_cost(self):
+        """Calculate booking cost based on parking spot rate and duration"""
+        if self.start_time and self.end_time and self.parking_spot:
+            duration = self.end_time - self.start_time
+            hours = math.ceil(duration.total_seconds() / 3600)
+            rate = getattr(self.parking_spot, 'hourly_rate', 0) or 0
+            self.cost = hours * rate
         else:
             self.cost = 0
 
-        super().save(*args, **kwargs)
 
-class Review(models.Model):
-    booking = models.ForeignKey(Booking,on_delete=models.CASCADE, related_name="reviews")
-    user = models.ForeignKey(Motorist, on_delete=models.CASCADE, related_name="reviews")
-    rating = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
-    comment = models.TextField(blank=True)
-    timestamp = models.DateTimeField(auto_now_add=True)
+class Payment(models.Model):
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+    ]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    amount = models.PositiveIntegerField(help_text="Amount in TZS")
+    phone_number = models.CharField(max_length=15, help_text="Mobile money phone number")
+    transaction_id = models.CharField(max_length=50, unique=True)
+    status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ('booking', 'user')
-        verbose_name = 'Review'
-        verbose_name_plural = 'Reviews'
-
-    def clean(self):
-        # Ensure the reviewer is the user associated with the booking
-        if self.booking_id and self.user_id:
-            if self.user != self.booking.user:
-                raise ValidationError("You can only review your own bookings.")
+        verbose_name = 'Payment'
+        verbose_name_plural = 'Payments'
+        ordering = ['-created_at']
 
     def __str__(self):
-        return f"Review {self.rating}/5 by {self.user} for Booking {self.booking.id}"
+        return f"Payment {self.transaction_id} - {self.get_status_display()} (TZS {self.amount:,})"
+
+    def clean(self):
+        """Validate payment data"""
+        errors = {}
+        if self.amount <= 0:
+            errors['amount'] = "Amount must be greater than zero."
+        if errors:
+            raise ValidationError(errors)
+
+    @property
+    def is_successful(self):
+        return self.status == 'completed'
+
+    @property
+    def is_failed(self):
+        return self.status == 'failed'
+
+    def mark_completed(self):
+        """Mark payment as successful"""
+        self.status = 'completed'
+        self.save()
+
+    def get_amount_display(self):
+        """Get formatted amount string"""
+        return f"TZS {self.amount:,}"
+
