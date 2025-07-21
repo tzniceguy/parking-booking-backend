@@ -11,6 +11,7 @@ from rest_framework import permissions
 from .utils import haversine_distance
 from rest_framework.response import Response
 from .utils import PaymentService
+from django.db import transaction
 
 class ParkingLotViewSet(viewsets.ModelViewSet):
     serializer_class = ParkingLotSerializer
@@ -142,31 +143,42 @@ class PaymentViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        booking = serializer.validated_data['booking']
+        booking_id = serializer.validated_data['booking_id']
         phone_number = serializer.validated_data['phone_number']
 
         try:
-            booking = Booking.objects.get(id=serializer.validated_data['booking_id'])
-            phone_number = serializer.validated_data['phone_number']
+            with transaction.atomic():
+                booking = Booking.objects.get(id=serializer.validated_data['booking_id'])
 
-            payment_response = PaymentService.initiate_payment(
-                phone_number=phone_number,
-                amount=booking.cost,
-                booking = booking.id,
-            )
+                # Check if the booking is already paid for
+                if booking.status not in ['pending', 'confirmed']:
+                    return Response({"error": "This booking cannot be paid for at its current status."}, status=status.HTTP_400_BAD_REQUEST)
 
-            if payment_response['success']:
-                payment = Payment.objects.create(
-                    amount=booking.cost,
+                payment_service = PaymentService()
+                payment_response = payment_service.initiate_payment(
                     phone_number=phone_number,
-                    transaction_id=payment_response['transaction_id'],
-                    booking=booking,
-                    status="completed"  # Mark as completed directly
+                    amount=booking.cost,
+                    booking=booking.id
                 )
-                return Response(PaymentSerializer(payment).data, status=status.HTTP_201_CREATED)
 
-            # If payment initiation failed, return the error message from the service
-            return Response({"error": payment_response.get('message', "Payment initiation failed.")}, status=status.HTTP_400_BAD_REQUEST)
+                if payment_response['success']:
+                    # Create the payment record
+                    payment = Payment.objects.create(
+                        amount=booking.cost,
+                        phone_number=phone_number,
+                        transaction_id=payment_response['transaction_id'],
+                        status="completed"  # Mark as completed directly
+                    )
+
+                    # Associate payment with booking and update booking status
+                    booking.payment = payment
+                    booking.status = 'active'
+                    booking.save()
+
+                    return Response(PaymentSerializer(payment).data, status=status.HTTP_201_CREATED)
+
+                # If payment initiation failed, return the error message from the service
+                return Response({"error": payment_response.get('message', "Payment initiation failed.")}, status=status.HTTP_400_BAD_REQUEST)
         except Booking.DoesNotExist:
             return Response({"error": "Booking not found."}, status=status.HTTP_404_NOT_FOUND)
 

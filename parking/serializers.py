@@ -189,10 +189,11 @@ class QuickBookingSerializer(serializers.Serializer):
         return booking
 
 class PaymentSerializer(serializers.ModelSerializer):
-    booking = serializers.PrimaryKeyRelatedField(queryset=Booking.objects.all())
+    booking_id = serializers.IntegerField(write_only=True)
+
     class Meta:
         model = Payment
-        fields = ["phone_number", "booking", "amount", "transaction_id", "status", "created_at", "updated_at"]
+        fields = ["id", "phone_number", "booking_id", "amount", "transaction_id", "status", "created_at", "updated_at"]
         read_only_fields = ["id", "amount", "transaction_id", "status", "created_at", "updated_at"]
 
     def validate_phone_number(self, phone_number):

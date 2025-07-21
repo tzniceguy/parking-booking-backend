@@ -1,4 +1,5 @@
 import math
+import uuid
 from azampay import Azampay
 from dotenv import load_dotenv
 import os
@@ -29,39 +30,43 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return earth_radius * c
 
-
 class PaymentService:
-    """a class to handle payment services"""
     def __init__(self):
         self.app_name = settings.AZAMPAY_CONFIG["APP_NAME"]
         self.client_id = settings.AZAMPAY_CONFIG["CLIENT_ID"]
         self.client_secret = settings.AZAMPAY_CONFIG["CLIENT_SECRET"]
         self.provider = settings.AZAMPAY_CONFIG["PROVIDER"]
-        self.environment = settings.AZAMPAY_CONFIG["ENVIRONMENT"]
+
+        # Initialize Azampay client
+        self.client = Azampay(
+            app_name=self.app_name,
+            client_id=self.client_id,
+            client_secret=self.client_secret,
+        )
 
     def initiate_payment(self, phone_number, amount, booking):
-        """utility function to initiate payment for a booking with azampay"""
-        checkout = Azampay.mobile_checkout(
-            amount=amount,
-            mobile=phone_number,
-            external_id=booking,
-            provider=self.provider)
+        try:
+            checkout = self.client.mobile_checkout(
+                amount=amount,
+                mobile=phone_number,
+                external_id=str(booking),  # Ensure string conversion
+                provider=self.provider
+            )
 
-        # Check if checkout is a dictionary and has 'success' key that is True
-        if isinstance(checkout, dict) and checkout.get("success"):
-            return {
-                "success": True,
-                "transaction_id": checkout.get("transaction_id"),
-                "message": checkout.get("message", "Payment initiated successfully")
-            }
-        else:
-            # Handle the case where checkout is not a dictionary or doesn't indicate success
-            if isinstance(checkout, dict):
-                message = checkout.get("message", "Payment initiation failed")
+            if isinstance(checkout, dict) and checkout.get("success"):
+                transaction_id = checkout.get("transactionId")
+                if not transaction_id:
+                    # Fallback to a unique ID if not provided by the payment gateway
+                    transaction_id = f"FALLBACK_{uuid.uuid4()}"
+                return {
+                    "success": True,
+                    "transaction_id": transaction_id,
+                    "message": checkout.get("message", "Payment initiated")
+                }
             else:
-                # If it's not a dictionary, convert to string for the message
-                message = str(checkout) if checkout is not None else "Payment initiation failed with no response"
-            return {
-                "success": False,
-                "message": message
-            }
+                message = checkout.get("message", "Payment failed") if isinstance(checkout, dict) else str(checkout)
+                return {"success": False, "message": message}
+
+        except Exception as e:
+            # Consider logging the full exception here
+            return {"success": False, "message": f"Payment error: {str(e)}"}
