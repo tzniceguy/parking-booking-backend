@@ -1,7 +1,7 @@
 import math
 import uuid
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MinValueValidator
 from django.db import models
 from users.models import Motorist,ParkingOperator
 
@@ -162,6 +162,8 @@ class Payment(models.Model):
     amount = models.PositiveIntegerField(help_text="Amount in TZS")
     phone_number = models.CharField(max_length=15, help_text="Mobile money phone number")
     transaction_id = models.CharField(max_length=50, unique=True)
+    external_id = models.CharField(max_length=50, unique=True, null=True, blank=True)
+    webhook_data = models.JSONField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

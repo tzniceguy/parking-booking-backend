@@ -167,6 +167,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
                         amount=booking.cost,
                         phone_number=phone_number,
                         transaction_id=payment_response['transaction_id'],
+                        external_id=payment_response['external_id'],
                         status="completed"  # Mark as completed directly
                     )
 
@@ -182,6 +183,36 @@ class PaymentViewSet(viewsets.ModelViewSet):
         except Booking.DoesNotExist:
             return Response({"error": "Booking not found."}, status=status.HTTP_404_NOT_FOUND)
 
+
+
+
+
+    @action(detail=False, methods=['post'], url_path='webhook')
+    def webhook(self, request):
+        """Handle payment callbacks from the payment provider."""
+        external_id = request.data.get('externalId')
+        transaction_status = request.data.get('transactionStatus')
+
+        if not external_id or not transaction_status:
+            return Response({'status': 'error', 'message': 'Missing required fields'}, status=400)
+
+        try:
+            payment = Payment.objects.get(external_id=external_id)
+            payment.webhook_data = request.data
+            payment.save()
+
+            if transaction_status.lower() == 'success' and payment.status != 'completed':
+                payment.status = 'completed'
+                payment.save()
+
+                booking = payment.booking
+                booking.status = 'active'
+                booking.save()
+
+            return Response({'status': 'success'})
+
+        except Payment.DoesNotExist:
+            return Response({'status': 'error', 'message': 'Payment not found'}, status=404)
 
 
 

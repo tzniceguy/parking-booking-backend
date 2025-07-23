@@ -1,8 +1,6 @@
 import math
 import uuid
 from azampay import Azampay
-from dotenv import load_dotenv
-import os
 
 from config import settings
 
@@ -61,6 +59,7 @@ class PaymentService:
                 return {
                     "success": True,
                     "transaction_id": transaction_id,
+                    "external_id": checkout.get("externalId"),
                     "message": checkout.get("message", "Payment initiated")
                 }
             else:

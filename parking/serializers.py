@@ -17,22 +17,48 @@ class ParkingSpotSerializer(serializers.ModelSerializer):
         fields = ("id", "spot_number", "spot_type", "hourly_rate", "is_available")
 
 
+class NestedParkingSpotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ParkingSpot
+        fields = ("id", "spot_number", "spot_type", "hourly_rate", "is_available")
+
+class ParkingLotSerializer(serializers.ModelSerializer):
+    operator_name = serializers.CharField(source="operator.company_name", read_only=True)
+    available_spots_count = serializers.SerializerMethodField()
+    spots = NestedParkingSpotSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ParkingLot
+        fields = (
+            "id",
+            "name",
+            "address",
+            "latitude",
+            "longitude",
+            "operator_name",
+            "available_spots_count",
+            "opening_hours",
+            "closing_hours",
+            "is_active",
+            "spots",
+        )
+        read_only_fields = ("id", "created_at")
+
+    def get_available_spots_count(self, obj):
+        return obj.spots.filter(is_available=True).count()
+
 class BookingSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(read_only=True)
-    vehicle = serializers.PrimaryKeyRelatedField(
-        queryset=Vehicle.objects.all(),
-        help_text="The ID of the vehicle to book the spot for."
-    )
-    parking_spot = serializers.PrimaryKeyRelatedField(
-        queryset=ParkingSpot.objects.all(),
-        help_text="The ID of the parking spot being booked."
-    )
+    vehicle = VehicleSerializer(read_only=True)
+    parking_lot = ParkingLotSerializer(source='parking_spot.lot', read_only=True)
+    parking_spot = NestedParkingSpotSerializer(read_only=True)
 
     class Meta:
         model = Booking
         fields = (
             "id",
             "user",
+            "parking_lot",
             "parking_spot",
             "vehicle",
             "start_time",
@@ -69,30 +95,6 @@ class BookingSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("You can only book with a vehicle registered to your account.")
 
         return data
-
-
-class ParkingLotSerializer(serializers.ModelSerializer):
-    operator_name = serializers.CharField(source="operator.company_name", read_only=True)
-    available_spots_count = serializers.SerializerMethodField()
-
-    class Meta:
-        model = ParkingLot
-        fields = (
-            "id",
-            "name",
-            "address",
-            "latitude",
-            "longitude",
-            "operator_name",
-            "available_spots_count",
-            "opening_hours",
-            "closing_hours",
-            "is_active",
-        )
-        read_only_fields = ("id", "created_at")
-
-    def get_available_spots_count(self, obj):
-        return obj.spots.filter(is_available=True).count()
 
 class QuickBookingSerializer(serializers.Serializer):
     license_plate = serializers.CharField(max_length=20)
